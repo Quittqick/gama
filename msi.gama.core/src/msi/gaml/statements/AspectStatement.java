@@ -134,6 +134,7 @@ public class AspectStatement extends AbstractStatementSequence {
 					final Double defaultSize = GamaPreferences.Displays.CORE_SIZE.getValue();
 					final GamaPoint point = agent.getLocation();
 
+
 					switch (SHAPES.get(defaultShape)) {
 						case 1:
 							ag = GamaGeometryType.buildCircle(defaultSize, point);

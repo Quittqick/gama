@@ -12,6 +12,7 @@ package msi.gaml.descriptions;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -23,6 +24,7 @@ import com.google.common.collect.Iterables;
 import msi.gama.common.interfaces.IGamlDescription;
 import msi.gama.common.interfaces.IGamlIssue;
 import msi.gama.common.preferences.GamaPreferences;
+import msi.gama.precompiler.GamlProperties;
 import msi.gama.runtime.exceptions.GamaRuntimeException;
 import msi.gaml.compilation.GAML;
 import msi.gaml.compilation.GamlCompilationError;
@@ -49,6 +51,9 @@ public abstract class SymbolDescription implements IDescription {
 	protected static Set<String> typeProviderFacets = ImmutableSet
 			.copyOf(Arrays.asList(VALUE, TYPE, AS, SPECIES, OF, OVER, FROM, INDEX, FUNCTION, UPDATE, INIT, DEFAULT));
 
+	/** The state. */
+	private final EnumSet<Flag> state = EnumSet.noneOf(Flag.class);
+
 	/** The order. */
 	private final int order = COUNTER.GET();
 
@@ -74,7 +79,7 @@ public abstract class SymbolDescription implements IDescription {
 	private IType<?> type;
 
 	/** The validated. */
-	protected boolean validated;
+	// protected boolean validated;
 
 	/** The proto. */
 	final SymbolProto proto;
@@ -96,12 +101,63 @@ public abstract class SymbolDescription implements IDescription {
 		this.keyword = keyword;
 		this.facets = facets;
 		element = source;
+		setIf(Flag.BuiltIn, element == null);
 		if (facets != null && facets.containsKey(ORIGIN)) {
 			originName = facets.getLabel(ORIGIN);
 			facets.remove(ORIGIN);
 		} else if (superDesc != null) { originName = superDesc.getName(); }
 		setEnclosingDescription(superDesc);
 		proto = DescriptionFactory.getProto(getKeyword(), getSpeciesContext());
+
+	}
+
+	// ---- State management
+
+	/**
+	 * Sets the.
+	 *
+	 * @param flag
+	 *            the flag
+	 */
+	protected void set(final Flag flag) {
+		state.add(flag);
+	}
+
+	/**
+	 * Sets the if.
+	 *
+	 * @param flag
+	 *            the flag
+	 * @param condition
+	 *            the condition
+	 */
+	protected void setIf(final Flag flag, final boolean condition) {
+		if (condition) {
+			set(flag);
+		} else {
+			unSet(flag);
+		}
+	}
+
+	/**
+	 * Un set.
+	 *
+	 * @param flag
+	 *            the flag
+	 */
+	protected void unSet(final Flag flag) {
+		state.remove(flag);
+	}
+
+	/**
+	 * Checks if is sets the.
+	 *
+	 * @param flag
+	 *            the flag
+	 * @return true, if is sets the
+	 */
+	protected boolean isSet(final Flag flag) {
+		return state.contains(flag);
 	}
 
 	@Override
@@ -240,10 +296,10 @@ public abstract class SymbolDescription implements IDescription {
 		return getSerializer().serialize(this, includingBuiltIn);
 	}
 
-	// @Override
-	// public void collectMetaInformation(final GamlProperties meta) {
-	// getSerializer().collectMetaInformation(this, meta);
-	// }
+	@Override
+	public void collectMetaInformation(final GamlProperties meta) {
+		getSerializer().collectMetaInformation(this, meta);
+	}
 
 	@Override
 	public boolean isDocumenting() { return enclosing != null && enclosing.isDocumenting(); }
@@ -616,14 +672,14 @@ public abstract class SymbolDescription implements IDescription {
 	}
 
 	@Override
-	public boolean isBuiltIn() { return element == null; }
+	public boolean isBuiltIn() { return state.contains(Flag.BuiltIn); }
 
 	/**
 	 * Checks if is synthetic.
 	 *
 	 * @return true, if is synthetic
 	 */
-	protected boolean isSynthetic() { return false; }
+	protected boolean isSynthetic() { return state.contains(Flag.Synthetic); }
 
 	@Override
 	public String getOriginName() { return originName; }
@@ -641,8 +697,8 @@ public abstract class SymbolDescription implements IDescription {
 	@Override
 	public IDescription validate() {
 
-		if (validated) return this;
-		validated = true;
+		if (state.contains(Flag.Validated)) return this;
+		set(Flag.Validated);
 
 		if (isBuiltIn()) {
 			// We simply make sure that the facets are correctly compiled
@@ -713,96 +769,183 @@ public abstract class SymbolDescription implements IDescription {
 
 		return visitFacets((facet, expr) -> {
 			final FacetProto fp = proto.getFacet(facet);
-
-			if (fp == null) {
-				if (facet.contains(IGamlIssue.DOUBLED_CODE)) {
-					final String correct = facet.replace(IGamlIssue.DOUBLED_CODE, "");
-					final String error = "Facet " + correct + " is declared twice. Please correct.";
-					error(error, IGamlIssue.DUPLICATE_DEFINITION, facet, "1");
-					error(error, IGamlIssue.DUPLICATE_DEFINITION, correct, "2");
-					return false;
-				}
-				if (!isDo) {
-					error("Unknown facet " + facet, IGamlIssue.UNKNOWN_FACET, facet);
-					return false;
-				}
-				return true;
-			}
+			if (fp == null) return processUnknowFacet(isDo, facet);
 			if (fp.getDeprecated() != null) {
 				warning("Facet '" + facet + "' is deprecated: " + fp.getDeprecated(), IGamlIssue.DEPRECATED, facet);
 			}
 			if (fp.values != null) {
-				final String val = expr.getExpression().literalValue();
-				// We have a multi-valued facet
-				if (!fp.values.contains(val)) {
-					error("Facet '" + facet + "' is expecting a value among " + fp.values + " instead of " + val,
-							facet);
-					return false;
-				}
+				if (!processMultiValuedFacet(facet, expr, fp)) return false;
 			} else {
-				IExpression exp;
-				if (fp.isNewTemp) {
-					exp = createVarWithTypes(facet);
-					expr.setExpression(exp);
-				} else if (!fp.isLabel()) {
-					final boolean isRemote = fp.isRemote && this instanceof StatementRemoteWithChildrenDescription;
-					IDescription previousEnclosingDescription = null;
-					if (isRemote) {
-						previousEnclosingDescription =
-								((StatementRemoteWithChildrenDescription) this).pushRemoteContext();
-					}
-					exp = expr.compile(SymbolDescription.this);
-					if (isRemote) {
-						((StatementRemoteWithChildrenDescription) this).popRemoteContext(previousEnclosingDescription);
-					}
-				} else {
-					exp = expr.getExpression();
-				}
-
+				IExpression exp = compileExpression(facet, expr, fp);
 				if (exp != null && !isBuiltIn) {
 					// Some expresssions might not be compiled
-					boolean compatible = false;
 					final IType<?> actualType = exp.getGamlType();
+					if (specialCaseForPointAndDate(fp, actualType)) return true;
 					final IType<?> contentType = fp.contentType;
 					final IType<?> keyType = fp.keyType;
-					// Special case for init. Temporary solution before we can pass ITypeProvider.OWNER_TYPE to the init
-					// facet. Concerned types are point and date, which belong to "NumberVariable" and can accept nil,
-					// while int and float cannot
-					if (INIT.equals(fp.name)) {
-						IType<?> requestedType = SymbolDescription.this.getGamlType();
-						if ((Types.POINT == requestedType || Types.DATE == requestedType)
-								&& actualType == Types.NO_TYPE)
-							return true;
-					}
-					for (final IType<?> type : fp.types) {
-						IType<?> requestedType1 = type;
-						if (requestedType1.isContainer()) {
-							requestedType1 = GamaType.from(requestedType1, keyType, contentType);
-						}
-						compatible = compatible || actualType.equals(requestedType1)
-								|| requestedType1.id() == IType.NONE
-								|| actualType.id() != IType.NONE && actualType.isTranslatableInto(requestedType1)
-								|| Types.isEmptyContainerCase(requestedType1, exp);
-						if (compatible) { break; }
-					}
+					boolean compatible = verifyFacetTypesCompatibility(fp, exp, actualType, contentType, keyType);
 					if (!compatible) {
-						final String[] strings = new String[fp.types.length];
-						for (int i = 0; i < fp.types.length; i++) {
-							IType<?> requestedType2 = fp.types[i];
-							if (requestedType2.isContainer()) {
-								requestedType2 = GamaType.from(requestedType2, keyType, contentType);
-							}
-							strings[i] = requestedType2.toString();
-						}
-
-						warning("Facet '" + facet + "' is expecting " + Arrays.toString(strings) + " instead of "
-								+ actualType, IGamlIssue.SHOULD_CAST, facet, fp.types[0].toString());
+						emitFacetTypesIncompatibilityWarning(facet, fp, actualType, contentType, keyType);
 					}
 				}
 			}
 			return true;
 		});
 
+	}
+
+	/**
+	 * Special case for point and date.
+	 *
+	 * @param fp
+	 *            the fp
+	 * @param actualType
+	 *            the actual type
+	 */
+	private boolean specialCaseForPointAndDate(final FacetProto fp, final IType<?> actualType) {
+		// Special case for init. Temporary solution before we can pass ITypeProvider.OWNER_TYPE to the init
+		// facet. Concerned types are point and date, which belong to "NumberVariable" and can accept nil,
+		// while int and float cannot
+		if (INIT.equals(fp.name)) {
+			IType<?> requestedType = SymbolDescription.this.getGamlType();
+			if ((Types.POINT == requestedType || Types.DATE == requestedType) && actualType == Types.NO_TYPE)
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Compile expression.
+	 *
+	 * @param facet
+	 *            the facet
+	 * @param expr
+	 *            the expr
+	 * @param fp
+	 *            the fp
+	 * @return the i expression
+	 */
+	private IExpression compileExpression(final String facet, final IExpressionDescription expr, final FacetProto fp) {
+		IExpression exp;
+		if (fp.isNewTemp) {
+			exp = createVarWithTypes(facet);
+			expr.setExpression(exp);
+		} else if (!fp.isLabel()) {
+			final boolean isRemote = fp.isRemote && this instanceof StatementRemoteWithChildrenDescription;
+			IDescription previousEnclosingDescription = null;
+			if (isRemote) {
+				previousEnclosingDescription = ((StatementRemoteWithChildrenDescription) this).pushRemoteContext();
+			}
+			exp = expr.compile(SymbolDescription.this);
+			if (isRemote) {
+				((StatementRemoteWithChildrenDescription) this).popRemoteContext(previousEnclosingDescription);
+			}
+		} else {
+			exp = expr.getExpression();
+		}
+		return exp;
+	}
+
+	/**
+	 * Emit facet types incompatibility warning.
+	 *
+	 * @param facet
+	 *            the facet
+	 * @param fp
+	 *            the fp
+	 * @param actualType
+	 *            the actual type
+	 * @param contentType
+	 *            the content type
+	 * @param keyType
+	 *            the key type
+	 */
+	private void emitFacetTypesIncompatibilityWarning(final String facet, final FacetProto fp,
+			final IType<?> actualType, final IType<?> contentType, final IType<?> keyType) {
+		final String[] strings = new String[fp.types.length];
+		for (int i = 0; i < fp.types.length; i++) {
+			IType<?> requestedType2 = fp.types[i];
+			if (requestedType2.isContainer()) { requestedType2 = GamaType.from(requestedType2, keyType, contentType); }
+			strings[i] = requestedType2.toString();
+		}
+
+		warning("Facet '" + facet + "' is expecting " + Arrays.toString(strings) + " instead of " + actualType,
+				IGamlIssue.SHOULD_CAST, facet, fp.types[0].toString());
+	}
+
+	/**
+	 * Verify facet types compatibility.
+	 *
+	 * @param fp
+	 *            the fp
+	 * @param exp
+	 *            the exp
+	 * @param actualType
+	 *            the actual type
+	 * @param contentType
+	 *            the content type
+	 * @param keyType
+	 *            the key type
+	 * @return true, if successful
+	 */
+	private boolean verifyFacetTypesCompatibility(final FacetProto fp, final IExpression exp, final IType<?> actualType,
+			final IType<?> contentType, final IType<?> keyType) {
+		boolean compatible = false;
+		for (final IType<?> type : fp.types) {
+			IType<?> requestedType1 = type;
+			if (requestedType1.isContainer()) { requestedType1 = GamaType.from(requestedType1, keyType, contentType); }
+			compatible = compatible || actualType.equals(requestedType1) || requestedType1.id() == IType.NONE
+					|| actualType.id() != IType.NONE && actualType.isTranslatableInto(requestedType1)
+					|| Types.isEmptyContainerCase(requestedType1, exp);
+			if (compatible) { break; }
+		}
+		return compatible;
+	}
+
+	/**
+	 * Process multi valued facet.
+	 *
+	 * @param facet
+	 *            the facet
+	 * @param expr
+	 *            the expr
+	 * @param fp
+	 *            the fp
+	 * @return true, if successful
+	 */
+	private boolean processMultiValuedFacet(final String facet, final IExpressionDescription expr,
+			final FacetProto fp) {
+		final String val = expr.getExpression().literalValue();
+		// We have a multi-valued facet
+		if (!fp.values.contains(val)) {
+			error("Facet '" + facet + "' is expecting a value among " + fp.values + " instead of " + val, facet);
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Process unknow facet.
+	 *
+	 * @param isDo
+	 *            the is do
+	 * @param facet
+	 *            the facet
+	 * @return true, if successful
+	 */
+	private boolean processUnknowFacet(final boolean isDo, final String facet) {
+		if (facet.contains(IGamlIssue.DOUBLED_CODE)) {
+			final String correct = facet.replace(IGamlIssue.DOUBLED_CODE, "");
+			final String error = "Facet " + correct + " is declared twice. Please correct.";
+			error(error, IGamlIssue.DUPLICATE_DEFINITION, facet, "1");
+			error(error, IGamlIssue.DUPLICATE_DEFINITION, correct, "2");
+			return false;
+		}
+		if (!isDo) {
+			error("Unknown facet " + facet, IGamlIssue.UNKNOWN_FACET, facet);
+			return false;
+		}
+		return true;
 	}
 
 	/**

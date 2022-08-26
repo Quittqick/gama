@@ -31,6 +31,7 @@ import msi.gama.metamodel.agent.IMacroAgent;
 import msi.gama.metamodel.agent.MinimalAgent;
 import msi.gama.metamodel.topology.grid.GamaSpatialMatrix.GridPopulation.GamlGridAgent;
 import msi.gama.metamodel.topology.grid.GamaSpatialMatrix.GridPopulation.MinimalGridAgent;
+import msi.gama.precompiler.GamlProperties;
 import msi.gama.precompiler.ITypeProvider;
 import msi.gama.util.GamaMapFactory;
 import msi.gama.util.IMap;
@@ -82,10 +83,10 @@ public class SpeciesDescription extends TypeDescription {
 	protected Class javaBase;
 
 	/** The can use minimal agents. */
-	protected boolean canUseMinimalAgents = true;
+	// protected boolean canUseMinimalAgents = true;
 
 	/** The control finalized. */
-	protected boolean controlFinalized;
+	// protected boolean controlFinalized;
 
 	/**
 	 * Instantiates a new species description.
@@ -135,6 +136,9 @@ public class SpeciesDescription extends TypeDescription {
 			final SpeciesDescription parent, final Iterable<? extends IDescription> cp, final EObject source,
 			final Facets facets, final Set<String> skills) {
 		super(keyword, clazz, macroDesc, parent, cp, source, facets, null);
+		set(Flag.CanUseMinimalAgents);
+		setIf(Flag.isMirror, hasFacet(MIRRORS));
+		setIf(Flag.isGrid, GRID.equals(getKeyword()));
 		setJavaBase(clazz);
 		setSkills(getFacet(SKILLS), skills);
 	}
@@ -147,6 +151,9 @@ public class SpeciesDescription extends TypeDescription {
 			final SpeciesDescription parent, final IAgentConstructor helper, final Set<String> skills2, final Facets ff,
 			final String plugin) {
 		super(SPECIES, clazz, superDesc, null, null, null, new Facets(NAME, name), plugin);
+		set(Flag.CanUseMinimalAgents);
+		setIf(Flag.isMirror, hasFacet(MIRRORS));
+		setIf(Flag.isGrid, GRID.equals(getKeyword()));
 		setJavaBase(clazz);
 		setParent(parent);
 		setSkills(ff == null ? null : ff.get(SKILLS), skills2);
@@ -307,38 +314,42 @@ public class SpeciesDescription extends TypeDescription {
 		Iterable<Class<? extends ISkill>> skillClasses = transform(getSkills(), TO_CLASS);
 		Iterable<IDescription> javaChildren = GAML.getAllChildrenOf(javaBase, skillClasses);
 		for (final IDescription v : javaChildren) {
-			if (isBuiltIn()) { v.setOriginName("built-in species " + getName()); }
-			if (v instanceof VariableDescription) {
-				boolean toAdd = false;
-				if (this.isBuiltIn() && !hasAttribute(v.getName()) || ((VariableDescription) v).isContextualType()) {
-					toAdd = true;
-				} else if (parent != null && parent != this) {
-					final VariableDescription existing = parent.getAttribute(v.getName());
-					if (existing == null || !existing.getOriginName().equals(v.getOriginName())) { toAdd = true; }
-				} else {
-					toAdd = true;
-				}
-				if (toAdd) {
-					// Fixes a problem where built-in attributes were not linked with their declaring class
-					// Class<?> c = VariableDescription.CLASS_DEFINITIONS.remove(v);
-					final VariableDescription var = (VariableDescription) v.copy(this);
-					addOwnAttribute(var);
-					var.builtInDoc = ((VariableDescription) v).getBuiltInDoc();
-					// VariableDescription.CLASS_DEFINITIONS.put(var, c);
-				}
+			addJavaChild(v);
+		}
+	}
 
+	private void addJavaChild(final IDescription v) {
+		if (isBuiltIn()) { v.setOriginName("built-in species " + getName()); }
+		if (v instanceof VariableDescription) {
+			boolean toAdd = false;
+			if (this.isBuiltIn() && !hasAttribute(v.getName()) || ((VariableDescription) v).isContextualType()) {
+				toAdd = true;
+			} else if (parent != null && parent != this) {
+				final VariableDescription existing = parent.getAttribute(v.getName());
+				if (existing == null || !existing.getOriginName().equals(v.getOriginName())) { toAdd = true; }
 			} else {
-				boolean toAdd = false;
-				if (parent == null) {
-					toAdd = true;
-				} else if (parent != this) {
-					final StatementDescription existing = parent.getAction(v.getName());
-					if (existing == null || !existing.getOriginName().equals(v.getOriginName())) { toAdd = true; }
-				}
-				if (toAdd) {
-					v.setEnclosingDescription(this);
-					addAction((ActionDescription) v);
-				}
+				toAdd = true;
+			}
+			if (toAdd) {
+				// Fixes a problem where built-in attributes were not linked with their declaring class
+				// Class<?> c = VariableDescription.CLASS_DEFINITIONS.remove(v);
+				final VariableDescription var = (VariableDescription) v.copy(this);
+				addOwnAttribute(var);
+				var.builtInDoc = ((VariableDescription) v).getBuiltInDoc();
+				// VariableDescription.CLASS_DEFINITIONS.put(var, c);
+			}
+
+		} else {
+			boolean toAdd = false;
+			if (parent == null) {
+				toAdd = true;
+			} else if (parent != this) {
+				final StatementDescription existing = parent.getAction(v.getName());
+				if (existing == null || !existing.getOriginName().equals(v.getOriginName())) { toAdd = true; }
+			}
+			if (toAdd) {
+				v.setEnclosingDescription(this);
+				addAction((ActionDescription) v);
 			}
 		}
 	}
@@ -380,7 +391,8 @@ public class SpeciesDescription extends TypeDescription {
 	 * Invalidate minimal agents.
 	 */
 	protected void invalidateMinimalAgents() {
-		canUseMinimalAgents = false;
+		unSet(Flag.CanUseMinimalAgents);
+		// canUseMinimalAgents = false;
 		if (parent != null && parent != this && !parent.isBuiltIn()) { getParent().invalidateMinimalAgents(); }
 	}
 
@@ -390,7 +402,8 @@ public class SpeciesDescription extends TypeDescription {
 	 * @return true, if successful
 	 */
 	protected boolean useMinimalAgents() {
-		if (!canUseMinimalAgents || parent != null && parent != this && !getParent().useMinimalAgents()) return false;
+		if (!isSet(Flag.CanUseMinimalAgents) || parent != null && parent != this && !getParent().useMinimalAgents())
+			return false;
 		return !hasFacet("use_regular_agents") || FALSE.equals(getLitteral("use_regular_agents"));
 	}
 
@@ -633,7 +646,7 @@ public class SpeciesDescription extends TypeDescription {
 	 *
 	 * @return true, if is grid
 	 */
-	public boolean isGrid() { return GRID.equals(getKeyword()); }
+	public boolean isGrid() { return isSet(Flag.isGrid); }
 
 	@Override
 	public String getTitle() { return getKeyword() + " " + getName(); }
@@ -716,7 +729,8 @@ public class SpeciesDescription extends TypeDescription {
 			super.setParent(null);
 			return;
 		}
-		if (parent instanceof SpeciesDescription && parent != this && !canUseMinimalAgents && !parent.isBuiltIn()) {
+		if (parent instanceof SpeciesDescription && parent != this && !isSet(Flag.CanUseMinimalAgents)
+				&& !parent.isBuiltIn()) {
 			((SpeciesDescription) parent).invalidateMinimalAgents();
 		}
 	}
@@ -868,8 +882,8 @@ public class SpeciesDescription extends TypeDescription {
 	 *
 	 */
 	private void finalizeControl() {
-		if (controlFinalized) return;
-		controlFinalized = true;
+		if (isSet(Flag.ControlFinalized)) return;
+		set(Flag.ControlFinalized);
 
 		if (control == null && parent != this && parent instanceof SpeciesDescription) {
 			((SpeciesDescription) parent).finalizeControl();
@@ -942,7 +956,7 @@ public class SpeciesDescription extends TypeDescription {
 	 *
 	 * @return true, if is mirror
 	 */
-	public boolean isMirror() { return hasFacet(MIRRORS); }
+	public boolean isMirror() { return isSet(Flag.isMirror); }
 
 	/**
 	 * Returns whether or not a species implements (directly or indirectly through its parents) a skill named after the
@@ -1061,14 +1075,12 @@ public class SpeciesDescription extends TypeDescription {
 	public Iterable<StatementDescription> getBehaviors() {
 		return Iterables.transform(getBehaviorNames(), this::getBehavior);
 	}
-	//
-	// @Override
-	// public void collectMetaInformation(final GamlProperties meta) {
-	// super.collectMetaInformation(meta);
-	// if (isBuiltIn()) {
-	// meta.put(GamlProperties.SPECIES, getName());
-	// }
-	// }
+
+	@Override
+	public void collectMetaInformation(final GamlProperties meta) {
+		super.collectMetaInformation(meta);
+		if (isBuiltIn()) { meta.put(GamlProperties.SPECIES, getName()); }
+	}
 
 	/**
 	 * Belongs to A micro model.

@@ -134,6 +134,7 @@ public class NetworkSkill extends MessagingSkill {
 							+ INetworkSkill.UDP_SERVER + "', '" + INetworkSkill.UDP_CLIENT + "', '"
 							+ INetworkSkill.TCP_SERVER + "', '" + INetworkSkill.TCP_CLIENT + "', '"
 							+ INetworkSkill.WEBSOCKET_SERVER + "', '" + INetworkSkill.WEBSOCKET_CLIENT + "', '"
+							+ INetworkSkill.HTTP_REQUEST  + "', '"
 							+ INetworkSkill.ARDUINO
 							+ "', otherwise the MQTT protocol is used.")),
 					@arg (
@@ -176,14 +177,16 @@ public class NetworkSkill extends MessagingSkill {
 							doc = @doc ("For UDP connection, it sets the maximum size of received packets (default = 1024bits).")) },
 			doc = @doc (
 					value = "Action used by a networking agent to connect to a server or to create a server.",
-					examples = { @example (" do connect  with_name:\"any_name\";"),
+					examples = { @example (" do connect with_name:\"any_name\";"),
 							@example (" do connect to:\"localhost\" port:9876 with_name:\"any_name\";"),
 							@example (" do connect to:\"localhost\" protocol:\"MQTT\" port:9876 with_name:\"any_name\";"),
-							@example (" do connect to:\"localhost\" protocol:\"udp_server\" port:9876 with_name:\"Server\"; "),
+							@example (" do connect to:\"localhost\" protocol:\"udp_server\" port:9876 with_name:\"Server\";"),
 							@example (" do connect to:\"localhost\" protocol:\"udp_client\" port:9876 with_name:\"Client\";"),
 							@example (" do connect to:\"localhost\" protocol:\"udp_server\" port:9877 size_packet: 4096;"),
 							@example (" do connect to:\"localhost\" protocol:\"tcp_client\" port:9876;"),
 							@example (" do connect to:\"localhost\" protocol:\"tcp_server\" port:9876 raw:true;"),
+							@example (" do connect to: \"https://openlibrary.org\" protocol: \"http\" port: 443 raw: true;"),
+							@example (" do connect protocol: \"arduino\";"),
 							}))
 	public boolean connectToServer(final IScope scope) throws GamaRuntimeException {
 		if (!scope.getExperiment().hasAttribute(REGISTRED_SERVER)) { this.startSkill(scope); }
@@ -476,11 +479,10 @@ public class NetworkSkill extends MessagingSkill {
 			name = INetworkSkill.FETCH_MESSAGE_FROM_NETWORK,
 			doc = @doc (
 					value = "Fetch all messages from network to mailbox. Use this in specific case only, this action is done at the end of each step. ",
-					returns = "nothing",
 					examples = { @example ("do fetch_message_from_network;//forces gama to get all the new messages since the begining of the cycle\n"
-						+ "loop while:has_more_message(){ \n" 
-						+ "		message mess <- fetch_message();\n"
-						+ "		write message.contents;\n"
+						+ "loop while: has_more_message(){ \n" 
+						+ "	message mess <- fetch_message();\n"
+						+ "	write message.contents;\n"
 						+ "}"
 						) 
 					}))

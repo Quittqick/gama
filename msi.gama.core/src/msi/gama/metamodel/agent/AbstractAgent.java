@@ -265,16 +265,18 @@ public abstract class AbstractAgent implements IAgent {
 	public void setName(final String name) {}
 
 	@Override
-	public GamaPoint getLocation() { return getGeometry().getLocation(); }
-
-	@Override
-	public GamaPoint setLocation(final GamaPoint l) {
-		return getGeometry().setLocation(l);
+	public GamaPoint getLocation(final IScope scope) {
+		return getGeometry().getLocation();
 	}
 
 	@Override
-	public void setGeometry(final IShape newGeometry) {
-		getGeometry().setGeometry(newGeometry);
+	public GamaPoint setLocation(final IScope scope, final GamaPoint l) {
+		return getGeometry(scope).setLocation(l);
+	}
+
+	@Override
+	public void setGeometry(final IScope scope, final IShape newGeometry) {
+		getGeometry(scope).setGeometry(newGeometry);
 	}
 
 	@Override
@@ -514,7 +516,7 @@ public abstract class AbstractAgent implements IAgent {
 		if (dying) return null;
 		dying = true;
 		getSpecies().getArchitecture().abort(scope);
-		scope.interruptAgent();
+		scope.setDeathStatus();
 		dispose();
 		return null;
 	}

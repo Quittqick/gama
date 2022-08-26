@@ -19,6 +19,7 @@ import org.eclipse.xtext.nodemodel.ICompositeNode;
 import org.eclipse.xtext.nodemodel.util.NodeModelUtils;
 
 import msi.gama.common.interfaces.IKeyword;
+import msi.gama.lang.gaml.gaml.Access;
 import msi.gama.lang.gaml.gaml.ActionRef;
 import msi.gama.lang.gaml.gaml.ArgumentDefinition;
 import msi.gama.lang.gaml.gaml.ArgumentPair;
@@ -331,7 +332,6 @@ public class EGaml implements IGamlEcoreUtils {
 	 */
 	@Override
 	public String getKeyOf(final EObject object, final EClass clazz) {
-		String s;
 		final int id = clazz.getClassifierID();
 		switch (id) {
 			case GamlPackage.UNARY:
@@ -339,36 +339,19 @@ public class EGaml implements IGamlEcoreUtils {
 			case GamlPackage.BINARY_OPERATOR:
 				return ((BinaryOperator) object).getOp();
 			case GamlPackage.ARGUMENT_PAIR:
-				s = ((ArgumentPair) object).getOp();
-				return s.endsWith(":") ? s.substring(0, s.length() - 1) : s;
+				return getKeyOfArgumentPair((ArgumentPair) object);
 			case GamlPackage.PARAMETER:
-				final Parameter p = (Parameter) object;
-				s = getKeyOf(p.getLeft());
-				if (s == null) { s = p.getBuiltInFacetKey(); }
-				return s.endsWith(":") ? s.substring(0, s.length() - 1) : s;
+				return getKeyOfParameter(object);
 			case GamlPackage.MODEL:
 				return IKeyword.MODEL;
 			case GamlPackage.STATEMENT:
-				s = ((Statement) object).getKey();
-				if (s == null && object instanceof S_Definition) {
-					final TypeRef type = (TypeRef) ((S_Definition) object).getTkey();
-					if (type != null) return getKeyOf(type);
-				}
-				return s;
+				return getKeyOfStatement(object);
 			case GamlPackage.FACET:
-				s = ((Facet) object).getKey();
-				return s.endsWith(":") ? s.substring(0, s.length() - 1) : s;
+				return getKeyOfFacet((Facet) object);
 			case GamlPackage.FUNCTION:
-				final Function ff = (Function) object;
-				return getKeyOf(ff.getLeft());
+				return getKeyOf(((Function) object).getLeft());
 			case GamlPackage.TYPE_REF:
-				s = getNameOfRef(object);
-				if (s.contains("<")) {
-					s = s.split("<")[0];
-					// Special case for the 'species<xxx>' case
-					if ("species".equals(s)) { s = SyntacticFactory.SPECIES_VAR; }
-				}
-				return s;
+				return getKeyOfTypeRef((TypeRef) object);
 			case GamlPackage.IF:
 				return "?";
 			case GamlPackage.VARIABLE_REF:
@@ -376,11 +359,10 @@ public class EGaml implements IGamlEcoreUtils {
 			case GamlPackage.ACTION_REF:
 			case GamlPackage.SKILL_REF:
 			case GamlPackage.EQUATION_REF:
-				return getNameOfRef(object);
+				return this.getNameOfRef(object);
 			case GamlPackage.INT_LITERAL:
 			case GamlPackage.STRING_LITERAL:
 			case GamlPackage.DOUBLE_LITERAL:
-				// case GamlPackage.COLOR_LITERAL:
 			case GamlPackage.RESERVED_LITERAL:
 			case GamlPackage.BOOLEAN_LITERAL:
 			case GamlPackage.TERMINAL_EXPRESSION:
@@ -389,6 +371,87 @@ public class EGaml implements IGamlEcoreUtils {
 				final List<EClass> eSuperTypes = clazz.getESuperTypes();
 				return eSuperTypes.isEmpty() ? null : getKeyOf(object, eSuperTypes.get(0));
 		}
+	}
+
+	/**
+	 * Gets the key of argument pair.
+	 *
+	 * @param object
+	 *            the object
+	 * @return the key of argument pair
+	 */
+	private String getKeyOfArgumentPair(final ArgumentPair object) {
+		String s = object.getOp();
+		return s.endsWith(":") ? s.substring(0, s.length() - 1) : s;
+	}
+
+	/**
+	 * Gets the key of facet.
+	 *
+	 * @param object
+	 *            the object
+	 * @return the key of facet
+	 */
+	private String getKeyOfFacet(final Facet object) {
+		String s = object.getKey();
+		return s.endsWith(":") ? s.substring(0, s.length() - 1) : s;
+	}
+
+	/**
+	 * Gets the key of type ref.
+	 *
+	 * @param object
+	 *            the object
+	 * @return the key of type ref
+	 */
+	private String getKeyOfTypeRef(final TypeRef object) {
+		String s = getNameOfRef(object);
+		if (s.contains("<")) {
+			s = s.split("<")[0];
+			// Special case for the 'species<xxx>' case
+			if ("species".equals(s)) { s = SyntacticFactory.SPECIES_VAR; }
+		}
+		return s;
+
+		// s = getNameOfRef(object);
+		// if (s.contains("<")) {
+		// s = s.split("<")[0];
+		// // Special case for the 'species<xxx>' case
+		// if ("species".equals(s)) { s = SyntacticFactory.SPECIES_VAR; }
+		// }
+		// return s;
+	}
+
+	/**
+	 * Gets the key of parameter.
+	 *
+	 * @param object
+	 *            the object
+	 * @return the key of parameter
+	 */
+	private String getKeyOfParameter(final EObject object) {
+		String s;
+		final Parameter p = (Parameter) object;
+		s = getKeyOf(p.getLeft());
+		if (s == null) { s = p.getBuiltInFacetKey(); }
+		return s.endsWith(":") ? s.substring(0, s.length() - 1) : s;
+	}
+
+	/**
+	 * Gets the key of statement.
+	 *
+	 * @param object
+	 *            the object
+	 * @return the key of statement
+	 */
+	private String getKeyOfStatement(final EObject object) {
+		String s;
+		s = ((Statement) object).getKey();
+		if (s == null && object instanceof S_Definition) {
+			final TypeRef type = (TypeRef) ((S_Definition) object).getTkey();
+			if (type != null) return getKeyOf(type);
+		}
+		return s;
 	}
 
 	/**
@@ -404,16 +467,11 @@ public class EGaml implements IGamlEcoreUtils {
 		if (n != null) return NodeModelUtils.getTokenText(n);
 		if (o instanceof VariableRef) return ((VariableRef) o).getRef().getName();
 		if (o instanceof UnitName) return ((UnitName) o).getRef().getName();
-		if (o instanceof ActionRef)
-			return ((ActionRef) o).getRef().getName();
-		else if (o instanceof SkillRef)
-			return ((SkillRef) o).getRef().getName();
-		else if (o instanceof EquationRef)
-			return ((EquationRef) o).getRef().getName();
-		else if (o instanceof TypeRef)
-			return ((TypeRef) o).getRef().getName();
-		else
-			return "";
+		if (o instanceof ActionRef) return ((ActionRef) o).getRef().getName();
+		if (o instanceof SkillRef) return ((SkillRef) o).getRef().getName();
+		if (o instanceof EquationRef) return ((EquationRef) o).getRef().getName();
+		if (o instanceof TypeRef) return ((TypeRef) o).getRef().getName();
+		return "";
 	}
 
 	/**
@@ -439,7 +497,6 @@ public class EGaml implements IGamlEcoreUtils {
 
 		if (!(expr instanceof Expression)) return expr.toString();
 		final StringBuilder serializer = new StringBuilder(100);
-		serializer.setLength(0);
 		serialize(serializer, (Expression) expr);
 		return serializer.toString();
 	}
@@ -487,6 +544,10 @@ public class EGaml implements IGamlEcoreUtils {
 			serializer.append(")");
 		} else if (expr instanceof Function) {
 			function(serializer, (Function) expr);
+		} else if (expr instanceof Access access) {
+			serialize(serializer, access.getLeft());
+			serializer.append('.');
+			serialize(serializer, access.getRight());
 		}
 		// else if ( expr instanceof FunctionRef ) {
 		// function((FunctionRef) expr);

@@ -1,12 +1,12 @@
 /*******************************************************************************************************
  *
- * BreakStatement.java, in msi.gama.core, is part of the source code of the
- * GAMA modeling and simulation platform (v.1.8.2).
+ * BreakStatement.java, in msi.gama.core, is part of the source code of the GAMA modeling and simulation platform
+ * (v.1.8.2).
  *
  * (c) 2007-2022 UMI 209 UMMISCO IRD/SU & Partners (IRIT, MIAT, TLU, CTU)
  *
  * Visit https://github.com/gama-platform/gama for license information and contacts.
- * 
+ *
  ********************************************************************************************************/
 package msi.gaml.statements;
 
@@ -26,6 +26,7 @@ import msi.gaml.descriptions.IDescription;
 import msi.gaml.descriptions.StatementDescription;
 import msi.gaml.descriptions.StatementWithChildrenDescription;
 import msi.gaml.descriptions.SymbolDescription;
+import msi.gaml.descriptions.SymbolProto;
 import msi.gaml.descriptions.SymbolSerializer;
 import msi.gaml.statements.BreakStatement.BreakSerializer;
 import msi.gaml.statements.BreakStatement.BreakValidator;
@@ -75,10 +76,10 @@ public class BreakStatement extends AbstractStatement {
 		public void validate(final StatementDescription description) {
 			IDescription superDesc = description.getEnclosingDescription();
 			while (superDesc instanceof StatementWithChildrenDescription) {
-				if (((StatementWithChildrenDescription) superDesc).isBreakable()) { return; }
+				if (((StatementWithChildrenDescription) superDesc).isBreakable()) return;
 				superDesc = superDesc.getEnclosingDescription();
 			}
-			description.error("'break' must be used in the context of a loop, a switch or an ask statement",
+			description.error("'break' must be used in the context of " + SymbolProto.BREAKABLE_STATEMENTS,
 					IGamlIssue.WRONG_CONTEXT);
 		}
 	}
@@ -95,7 +96,7 @@ public class BreakStatement extends AbstractStatement {
 	 */
 	@Override
 	protected Object privateExecuteIn(final IScope scope) throws GamaRuntimeException {
-		scope.interruptLoop();
+		scope.setBreakStatus();
 		return null; // How to return the last object ??
 	}
 

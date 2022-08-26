@@ -17,7 +17,6 @@ import static msi.gama.runtime.ExecutionResult.withValue;
 import java.util.Collections;
 import java.util.Map;
 
-import msi.gama.common.interfaces.IGraphics;
 import msi.gama.common.interfaces.IGui;
 import msi.gama.common.interfaces.IStepable;
 import msi.gama.common.util.RandomUtils;
@@ -73,8 +72,10 @@ public class ExecutionScope implements IScope {
 	protected final SpecialContext additionalContext = new SpecialContext();
 
 	/** The errors disabled. */
-	private volatile boolean _action_halted, _loop_halted, _agent_halted, _trace, _in_try_mode, _interrupted,
-			_errors_disabled;
+	private volatile boolean _trace, _in_try_mode, _errors_disabled;
+
+	/** The flow status. */
+	private volatile FlowStatus flowStatus = FlowStatus.NORMAL;
 
 	/** The current symbol. */
 	private ISymbol currentSymbol;
@@ -88,7 +89,7 @@ public class ExecutionScope implements IScope {
 		Object each;
 
 		/** The graphics. */
-		IGraphics graphics;
+		// IGraphics graphics;
 
 		/** The topology. */
 		public ITopology topology;
@@ -113,7 +114,7 @@ public class ExecutionScope implements IScope {
 		 */
 		void clear() {
 			each = null;
-			graphics = null;
+			// graphics = null;
 			topology = null;
 			rootAgent = null;
 			gui = null;
@@ -130,7 +131,7 @@ public class ExecutionScope implements IScope {
 		public void copyFrom(final SpecialContext specialContext) {
 			if (specialContext == null) return;
 			each = specialContext.each;
-			graphics = specialContext.graphics;
+			// graphics = specialContext.graphics;
 			topology = specialContext.topology;
 			rootAgent = specialContext.rootAgent;
 			gui = specialContext.gui;
@@ -226,6 +227,7 @@ public class ExecutionScope implements IScope {
 		agentContext = null;
 		additionalContext.clear();
 		currentSymbol = null;
+		setFlowStatus(FlowStatus.DISPOSE);
 	}
 
 	@Override
@@ -270,21 +272,33 @@ public class ExecutionScope implements IScope {
 	 */
 	@Override
 	public final boolean interrupted() {
-		return _root_interrupted() || _action_halted || _loop_halted || _agent_halted;
+		return INTERRUPTING_STATUSES.contains(flowStatus);
+
+		/*
+		 * _root_interrupted() ||
+		 */
+		/* _action_halted || _loop_halted || _agent_halted */
+		// flowStatus == FlowStatus.RETURN || flowStatus == FlowStatus.BREAK || flowStatus == FlowStatus.CONTINUE
+		// || flowStatus == FlowStatus.DEATH;
 	}
 
 	@Override
-	public void setInterrupted() {
-		this._interrupted = true;
-	}
+	public final boolean isClosed() { return flowStatus == FlowStatus.DISPOSE; }
+
+	// @Override
+	// public void setInterrupted() {
+	// this._interrupted = true;
+	// }
 
 	/**
 	 * @return true if the root agent of the scope is marked as interrupted (i.e. dead)
 	 */
 
-	public boolean _root_interrupted() {
-		return _interrupted || getRoot() == null || getRoot().dead();
-	}
+	// public boolean _root_interrupted() {
+	// // return ROOT_INTERRUPTING
+	//
+	// return /* _interrupted */ flowStatus == FlowStatus.CLOSE /* || getRoot() == null || getRoot().dead(); */;
+	// }
 
 	@Override
 	public boolean isOnUserHold() {
@@ -300,20 +314,23 @@ public class ExecutionScope implements IScope {
 		root.setOnUserHold(state);
 	}
 
-	@Override
-	public final void interruptAction() {
-		_action_halted = true;
-	}
+	// @Override
+	// public final void interruptAction() {
+	// _action_halted = true;
+	// }
 
-	@Override
-	public final void interruptLoop() {
-		_loop_halted = true;
-	}
-
-	@Override
-	public final void interruptAgent() {
-		_agent_halted = true;
-	}
+	/**
+	 * Interrupt loop.
+	 */
+	// @Override
+	// public final void interruptLoop() {
+	// _loop_halted = true;
+	// }
+	//
+	// @Override
+	// public final void interruptAgent() {
+	// _agent_halted = true;
+	// }
 
 	/**
 	 * Method push()
@@ -356,7 +373,8 @@ public class ExecutionScope implements IScope {
 		final AgentExecutionContext previous = agentContext;
 		agentContext = agentContext.getOuterContext();
 		previous.dispose();
-		_agent_halted = false;
+		getAndClearDeathStatus();
+		// _agent_halted = false;
 	}
 
 	/**
@@ -390,15 +408,18 @@ public class ExecutionScope implements IScope {
 		this.getGui().getConsole().informConsole(sb.toString(), getRoot());
 	}
 
-	@Override
-	public void popLoop() {
-		_loop_halted = false;
-	}
+	/**
+	 * Pop loop.
+	 */
+	// @Override
+	// public void popLoop() {
+	// // _loop_halted = false;
+	// }
 
-	@Override
-	public void popAction() {
-		_action_halted = false;
-	}
+	// @Override
+	// public void popAction() {
+	// _action_halted = false;
+	// }
 
 	/**
 	 * Method pop()
@@ -1010,5 +1031,22 @@ public class ExecutionScope implements IScope {
 
 	@Override
 	public GamaRuntimeException getCurrentError() { return additionalContext.currentError; }
+
+	@Override
+	public void setFlowStatus(final FlowStatus status) { flowStatus = status; }
+
+	/**
+	 * Gets the and clear flow status.
+	 *
+	 * @return the and clear flow status
+	 */
+	@Override
+	public FlowStatus getAndClearFlowStatus(final FlowStatus comparison) {
+		try {
+			return flowStatus;
+		} finally {
+			if (flowStatus == comparison) { flowStatus = FlowStatus.NORMAL; }
+		}
+	}
 
 }

@@ -155,6 +155,7 @@ public class GamaWebSocketServer extends WebSocketServer {
 			final String cmd_type = map.get("type").toString();
 			switch (cmd_type) {
 			case "launch":
+				System.out.println("launch");
 				System.out.println(map.get("model"));
 				System.out.println(map.get("experiment"));
 				try {
@@ -177,7 +178,7 @@ public class GamaWebSocketServer extends WebSocketServer {
 				}					
 				break;
 			case "step":
-//				System.out.println("step " + exp_id);
+				System.out.println("step " + exp_id);
 				if (get_listener().getExperiment(socket_id, exp_id) != null
 						&& get_listener().getExperiment(socket_id, exp_id).getSimulation() != null) {
 					get_listener().getExperiment(socket_id, exp_id).controller.userStep();
@@ -185,7 +186,7 @@ public class GamaWebSocketServer extends WebSocketServer {
 				socket.send(cmd_type);
 				break;
 			case "stepBack":
-//				System.out.println("stepBack " + exp_id);
+				System.out.println("stepBack " + exp_id);
 				if (get_listener().getExperiment(socket_id, exp_id) != null
 						&& get_listener().getExperiment(socket_id, exp_id).getSimulation() != null) {
 					get_listener().getExperiment(socket_id, exp_id).controller.userStepBack();
@@ -223,6 +224,7 @@ public class GamaWebSocketServer extends WebSocketServer {
 				}
 				break;
 			case "output":
+				System.out.println("output" + exp_id);
 				if (get_listener().getExperiment(socket_id, exp_id) != null
 						&& get_listener().getExperiment(socket_id, exp_id).getSimulation() != null) {
 					final boolean wasPaused = get_listener().getExperiment(socket_id, exp_id).controller.isPaused();
@@ -266,7 +268,7 @@ public class GamaWebSocketServer extends WebSocketServer {
 				break;
 			case "compile":
 				try {
-					Globals.IMAGES_PATH = "C:\\GAMA\\headless\\samples\\toto\\snapshot";
+					Globals.IMAGES_PATH = "C:\\GAMA\\headless\\samples\\toto\\snapshot";//TODO: does it have any purpose ? Why windows path ?
 					compileGamlSimulation(socket,
 							Arrays.asList("-gaml", ".", map.get("model").toString(), map.get("experiment").toString()));
 				} catch (IOException | GamaHeadlessException e) {
@@ -275,9 +277,11 @@ public class GamaWebSocketServer extends WebSocketServer {
 				}
 				socket.send(cmd_type);
 				break;
+			default:
+				socket.send("Unknown command");
+				break;
 			}
 		} catch (Exception e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 			socket.send(e1.getMessage());
 		}
@@ -386,13 +390,20 @@ public class GamaWebSocketServer extends WebSocketServer {
 
 		File ff = new File(pathToModel);
 //		System.out.println(ff.getAbsoluteFile().toString());
+		if (!ff.exists()) {
+			System.out.println(ff.getAbsolutePath() + " does not exist");
+			socket.send("gaml file does not exist");
+			return;
+		}
 		if (!GamlFileExtension.isGaml(ff.getAbsoluteFile().toString())) {
-			System.exit(-1);
+			//System.exit(-1);
+			System.out.println(ff.getAbsolutePath() + " is not a gaml file");
+			socket.send(pathToModel + "is not a gaml file");
+			return;
 		}
 		final String argExperimentName = args.get(args.size() - 2);
 //		final String argGamlFile = args.get(args.size() - 1); 
-		if (!ff.exists())
-			return;
+
 //		final List<IExperimentJob> jb = ExperimentationPlanFactory.buildExperiment(ff.getAbsoluteFile().toString());
 		ManualExperimentJob selectedJob = null;
 //		for (final IExperimentJob j : jb) {
@@ -401,8 +412,9 @@ public class GamaWebSocketServer extends WebSocketServer {
 //				break;
 //			}
 //		}
-		if (selectedJob == null)
-			return;
+//		if (selectedJob == null)
+//			return;
+		
 		Globals.OUTPUT_PATH = args.get(args.size() - 3);
 		selectedJob.endCond=end; 
 		selectedJob.controller.directOpenExperiment();

@@ -10,6 +10,7 @@
 package msi.gama.runtime;
 
 import java.io.Closeable;
+import java.util.EnumSet;
 import java.util.Map;
 
 import msi.gama.common.interfaces.IBenchmarkable;
@@ -39,8 +40,16 @@ import msi.gaml.types.IType;
  * @todo Description
  *
  */
+
+/**
+ * The Interface IScope.
+ */
 @SuppressWarnings ({ "rawtypes" })
 public interface IScope extends Closeable, IBenchmarkable {
+
+	/** The interrupting statuses. */
+	EnumSet<FlowStatus> INTERRUPTING_STATUSES =
+			EnumSet.of(FlowStatus.BREAK, FlowStatus.RETURN, FlowStatus.CONTINUE, FlowStatus.DIE, FlowStatus.DISPOSE);
 
 	/**
 	 * The Interface IGraphicsScope.
@@ -96,172 +105,6 @@ public interface IScope extends Closeable, IBenchmarkable {
 		@Override
 		default boolean isGraphics() { return true; }
 	}
-
-	// /**
-	// * Use this class to accumulate a series of execution results. Only the last one marked as 'passed' will be
-	// returned
-	// *
-	// * @author drogoul
-	// *
-	// */
-	// public static class MutableResult extends ExecutionResultWithValue {
-	//
-	// /**
-	// * Instantiates a new mutable result.
-	// */
-	// public MutableResult() {
-	// super(true, null);
-	// }
-	//
-	// /**
-	// * Accepts an execution result
-	// *
-	// * @param e
-	// * the execution result
-	// * @return true, if successful
-	// */
-	// public boolean accept(final ExecutionResult e) {
-	// passed = passed && e.passed();
-	// if (passed) {
-	// this.value = e.getValue();
-	// }
-	// return passed;
-	// }
-	//
-	// /*
-	// * (non-Javadoc)
-	// *
-	// * @see msi.gama.runtime.IScope.ExecutionResultWithValue#getValue()
-	// */
-	// @Override
-	// public Object getValue() {
-	// return value;
-	// }
-	//
-	// }
-	//
-	// /**
-	// * The result of executions. 'passed' represents the success or failure of the computation, value its result
-	// *
-	// * @author drogoul
-	// *
-	// */
-	//
-	// public abstract static class ExecutionResult {
-	//
-	// /**
-	// * Passed.
-	// *
-	// * @return true, if successful
-	// */
-	// public abstract boolean passed();
-	//
-	// /**
-	// * Gets the value.
-	// *
-	// * @return the value
-	// */
-	// public Object getValue() {
-	// return passed();
-	// }
-	//
-	// }
-	//
-	// /**
-	// * The Class FailedExecutionResult.
-	// */
-	// public static class FailedExecutionResult extends ExecutionResult {
-	//
-	// /*
-	// * (non-Javadoc)
-	// *
-	// * @see msi.gama.runtime.IScope.ExecutionResult#passed()
-	// */
-	// @Override
-	// public boolean passed() {
-	// return false;
-	// }
-	//
-	// }
-	//
-	// /**
-	// * The Class SuccessfulExecutionResult.
-	// */
-	// public static class SuccessfulExecutionResult extends ExecutionResult {
-	//
-	// /*
-	// * (non-Javadoc)
-	// *
-	// * @see msi.gama.runtime.IScope.ExecutionResult#passed()
-	// */
-	// @Override
-	// public boolean passed() {
-	// return true;
-	// }
-	//
-	// }
-	//
-	// /**
-	// * The Class ExecutionResultWithValue.
-	// */
-	// public static class ExecutionResultWithValue extends ExecutionResult {
-	//
-	// /** The value. */
-	// protected Object value;
-	//
-	// /** The passed. */
-	// protected boolean passed;
-	//
-	// /**
-	// * Instantiates a new execution result with a given value.
-	// *
-	// * @param value
-	// * the value
-	// */
-	// public ExecutionResultWithValue(final Object value) {
-	// this(true, value);
-	// }
-	//
-	// /**
-	// * Instantiates a new execution result with a flag indicating if the execution is a sucess and an object
-	// *
-	// * @param passed
-	// * the passed
-	// * @param value
-	// * the value
-	// */
-	// public ExecutionResultWithValue(final boolean passed, final Object value) {
-	// this.passed = passed;
-	// this.value = value;
-	// }
-	//
-	// /*
-	// * (non-Javadoc)
-	// *
-	// * @see msi.gama.runtime.IScope.ExecutionResult#getValue()
-	// */
-	// @Override
-	// public Object getValue() {
-	// return value;
-	// }
-	//
-	// /*
-	// * (non-Javadoc)
-	// *
-	// * @see msi.gama.runtime.IScope.ExecutionResult#passed()
-	// */
-	// @Override
-	// public boolean passed() {
-	// return passed;
-	// }
-	//
-	// }
-	//
-	// /** The Constant PASSED. */
-	// public final static ExecutionResult PASSED = new SuccessfulExecutionResult();
-	//
-	// /** The Constant FAILED. */
-	// public final static ExecutionResult FAILED = new FailedExecutionResult();
 
 	/**
 	 * Management of the scope state.
@@ -376,7 +219,7 @@ public interface IScope extends Closeable, IBenchmarkable {
 	/**
 	 * Sets the interrupted.
 	 */
-	void setInterrupted();
+	// void setInterrupted();
 
 	/**
 	 * Keeping track of symbols.
@@ -819,27 +662,35 @@ public interface IScope extends Closeable, IBenchmarkable {
 	/**
 	 * Indicates that a loop is finishing : should clear any _loop_halted status present.
 	 */
-	void popLoop();
+	// void popLoop();
 
 	/**
 	 * Indicates that an action is finishing : should clear any _action_halted status present.
 	 */
-	void popAction();
+	// void popAction();
 
 	/**
 	 * Should set the _action_halted flag to true.
 	 */
-	void interruptAction();
+	// void interruptAction();
 
 	/**
 	 * Should set the _agent_halted flag to true.
 	 */
-	void interruptAgent();
+	// void interruptAgent();
 
 	/**
 	 * Should set the _loop_halted flag to true.
 	 */
-	void interruptLoop();
+	// void interruptLoop();
+	void setFlowStatus(FlowStatus status);
+
+	/**
+	 * Gets the flow status.
+	 *
+	 * @return the flow status
+	 */
+	// FlowStatus getAndClearFlowStatus();
 
 	/**
 	 * Inits the.
@@ -945,5 +796,84 @@ public interface IScope extends Closeable, IBenchmarkable {
 	 * @see msi.gama.runtime.IScope#execute(msi.gaml.statements.IStatement, msi.gama.metamodel.agent.IAgent)
 	 */
 	ExecutionResult execute(IExecutable statement, IAgent target, boolean useTargetScopeForExecution, Arguments args);
+
+	/**
+	 * Gets the and clear break status.
+	 *
+	 * @return the and clear break status
+	 */
+	default FlowStatus getAndClearBreakStatus() { return getAndClearFlowStatus(FlowStatus.BREAK); }
+
+	/**
+	 * Gets the and clear continue status.
+	 *
+	 * @return the and clear continue status
+	 */
+	default FlowStatus getAndClearContinueStatus() { return getAndClearFlowStatus(FlowStatus.CONTINUE); }
+
+	/**
+	 * Gets the and clear return status.
+	 *
+	 * @return the and clear return status
+	 */
+	default FlowStatus getAndClearReturnStatus() { return getAndClearFlowStatus(FlowStatus.RETURN); }
+
+	/**
+	 * Gets the and clear death status.
+	 *
+	 * @return the and clear death status
+	 */
+	default FlowStatus getAndClearDeathStatus() { return getAndClearFlowStatus(FlowStatus.DIE); }
+
+	/**
+	 * Gets the and clear flow status.
+	 *
+	 * @param comparison
+	 *            the comparison
+	 * @return the and clear flow status
+	 */
+	FlowStatus getAndClearFlowStatus(final FlowStatus comparison);
+
+	/**
+	 * Sets the break status.
+	 */
+	default void setBreakStatus() {
+		setFlowStatus(FlowStatus.BREAK);
+	}
+
+	/**
+	 * Sets the continue status.
+	 */
+	default void setContinueStatus() {
+		setFlowStatus(FlowStatus.CONTINUE);
+	}
+
+	/**
+	 * Sets the return status.
+	 */
+	default void setReturnStatus() {
+		setFlowStatus(FlowStatus.RETURN);
+	}
+
+	/**
+	 * Sets the death status.
+	 */
+	default void setDeathStatus() {
+		setFlowStatus(FlowStatus.DIE);
+	}
+
+	/**
+	 * Sets the release status.
+	 */
+	default void setDisposeStatus() {
+		setFlowStatus(FlowStatus.DISPOSE);
+	}
+
+	/**
+	 * Checks if is closed.
+	 *
+	 * @return true, if is closed
+	 */
+	boolean isClosed();
 
 }

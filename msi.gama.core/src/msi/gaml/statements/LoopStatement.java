@@ -1,12 +1,12 @@
 /*******************************************************************************************************
  *
- * LoopStatement.java, in msi.gama.core, is part of the source code of the
- * GAMA modeling and simulation platform (v.1.8.2).
+ * LoopStatement.java, in msi.gama.core, is part of the source code of the GAMA modeling and simulation platform
+ * (v.1.8.2).
  *
  * (c) 2007-2022 UMI 209 UMMISCO IRD/SU & Partners (IRIT, MIAT, TLU, CTU)
  *
  * Visit https://github.com/gama-platform/gama for license information and contacts.
- * 
+ *
  ********************************************************************************************************/
 package msi.gaml.statements;
 
@@ -21,6 +21,7 @@ import msi.gama.precompiler.GamlAnnotations.symbol;
 import msi.gama.precompiler.GamlAnnotations.usage;
 import msi.gama.precompiler.IConcept;
 import msi.gama.precompiler.ISymbolKind;
+import msi.gama.runtime.FlowStatus;
 import msi.gama.runtime.IScope;
 import msi.gama.runtime.exceptions.GamaRuntimeException;
 import msi.gama.util.IContainer;
@@ -44,10 +45,36 @@ import msi.gaml.types.Types;
 /**
  * The Class LoopStatement.
  */
+
+/**
+ * The Class LoopStatement.
+ */
+
+/**
+ * The Class LoopStatement.
+ */
+
+/**
+ * The Class LoopStatement.
+ */
+
+/**
+ * The Class LoopStatement.
+ */
+
+/**
+ * The Class LoopStatement.
+ */
+
+/**
+ * The Class LoopStatement.
+ */
 @symbol (
 		name = IKeyword.LOOP,
 		kind = ISymbolKind.SEQUENCE_STATEMENT,
 		with_sequence = true,
+		breakable = true,
+		continuable = true,
 		concept = { IConcept.LOOP })
 @facets (
 		value = { @facet (
@@ -224,71 +251,19 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 			final IExpressionDescription over = description.getFacet(OVER);
 			final IExpressionDescription from = description.getFacet(FROM);
 			final IExpressionDescription to = description.getFacet(TO);
-			// final IExpressionDescription step = description.getFacet(STEP);
 			final IExpressionDescription cond = description.getFacet(WHILE);
 			IExpressionDescription name = description.getFacet(NAME);
 			if (name != null && name.isConst() && name.toString().startsWith(INTERNAL)) { name = null; }
 			// See Issue #3085
 			if (name != null) { Assert.nameIsValid(description); }
 			if (times != null) {
-				if (over != null) {
-					description.error("'times' and 'over' are not compatible", IGamlIssue.CONFLICTING_FACETS, TIMES,
-							OVER);
-					return;
-				}
-				if (cond != null) {
-					description.error("'times' and 'while' are not compatible", IGamlIssue.CONFLICTING_FACETS, TIMES,
-							WHILE);
-					return;
-				}
-				if (from != null) {
-					description.error("'times' and 'from' are not compatible", IGamlIssue.CONFLICTING_FACETS, TIMES,
-							FROM);
-					return;
-				}
-				if (to != null) {
-					description.error("'times' and 'to' are not compatible", IGamlIssue.CONFLICTING_FACETS, TIMES, TO);
-					return;
-				}
-				if (name != null) { description.error("No variable should be declared", IGamlIssue.UNUSED, NAME); }
+				processTimes(description, over, from, to, cond, name);
 			} else if (over != null) {
-				if (cond != null) {
-					description.error("'over' and 'while' are not compatible", IGamlIssue.CONFLICTING_FACETS, OVER,
-							WHILE);
-					return;
-				}
-				if (from != null) {
-					description.error("'over' and 'from' are not compatible", IGamlIssue.CONFLICTING_FACETS, OVER,
-							FROM);
-					return;
-				}
-				if (to != null) {
-					description.error("'over' and 'to' are not compatible", IGamlIssue.CONFLICTING_FACETS, OVER, TO);
-					return;
-				}
-				if (name == null) { description.error("No variable has been declared", IGamlIssue.MISSING_NAME, OVER); }
+				processOver(description, from, to, cond, name);
 			} else if (cond != null) {
-				if (from != null) {
-					description.error("'while' and 'from' are not compatible", IGamlIssue.CONFLICTING_FACETS, WHILE,
-							FROM);
-					return;
-				}
-				if (to != null) {
-					description.error("'while' and 'to' are not compatible", IGamlIssue.CONFLICTING_FACETS, WHILE, TO);
-					return;
-				}
-				if (name != null) {
-					description.error("No variable should be declared", IGamlIssue.UNUSED, WHILE, NAME);
-				}
+				processCond(description, from, to, name);
 			} else if (from != null) {
-				if (name == null) {
-					description.error("No variable has been declared", IGamlIssue.MISSING_NAME, NAME);
-					return;
-				}
-				if (to == null) {
-					description.error("'loop' is missing the 'to:' facet", IGamlIssue.MISSING_FACET,
-							description.getUnderlyingElement(), TO, "0");
-				}
+				processFromTo(description, to, name);
 			} else if (to != null) {
 				description.error("'loop' is missing the 'from:' facet", IGamlIssue.MISSING_FACET,
 						description.getUnderlyingElement(), FROM, "0");
@@ -296,6 +271,110 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 				description.error("Missing the definition of the kind of loop to perform (times, over, while, from/to)",
 						IGamlIssue.MISSING_FACET);
 			}
+		}
+
+		/**
+		 * Process from to.
+		 *
+		 * @param description
+		 *            the description
+		 * @param to
+		 *            the to
+		 * @param name
+		 *            the name
+		 */
+		private void processFromTo(final IDescription description, final IExpressionDescription to,
+				final IExpressionDescription name) {
+			if (name == null) {
+				description.error("No variable has been declared", IGamlIssue.MISSING_NAME, NAME);
+				return;
+			}
+			if (to == null) {
+				description.error("'loop' is missing the 'to:' facet", IGamlIssue.MISSING_FACET,
+						description.getUnderlyingElement(), TO, "0");
+			}
+		}
+
+		/**
+		 * Process from to.
+		 *
+		 * @param description
+		 *            the description
+		 * @param from
+		 *            the from
+		 * @param to
+		 *            the to
+		 * @param name
+		 *            the name
+		 */
+		private void processCond(final IDescription description, final IExpressionDescription from,
+				final IExpressionDescription to, final IExpressionDescription name) {
+			if (from != null) {
+				description.error("'while' and 'from' are not compatible", IGamlIssue.CONFLICTING_FACETS, WHILE, FROM);
+			}
+			if (to != null) {
+				description.error("'while' and 'to' are not compatible", IGamlIssue.CONFLICTING_FACETS, WHILE, TO);
+			}
+			if (name != null) { description.error("No variable should be declared", IGamlIssue.UNUSED, WHILE, NAME); }
+		}
+
+		/**
+		 * Process over.
+		 *
+		 * @param description
+		 *            the description
+		 * @param from
+		 *            the from
+		 * @param to
+		 *            the to
+		 * @param cond
+		 *            the cond
+		 * @param name
+		 *            the name
+		 */
+		private void processOver(final IDescription description, final IExpressionDescription from,
+				final IExpressionDescription to, final IExpressionDescription cond, final IExpressionDescription name) {
+			if (cond != null) {
+				description.error("'over' and 'while' are not compatible", IGamlIssue.CONFLICTING_FACETS, OVER, WHILE);
+			} else if (from != null) {
+				description.error("'over' and 'from' are not compatible", IGamlIssue.CONFLICTING_FACETS, OVER, FROM);
+			} else if (to != null) {
+				description.error("'over' and 'to' are not compatible", IGamlIssue.CONFLICTING_FACETS, OVER, TO);
+			}
+			if (name == null) { description.error("No variable has been declared", IGamlIssue.MISSING_NAME, OVER); }
+		}
+
+		/**
+		 * Process times.
+		 *
+		 * @param description
+		 *            the description
+		 * @param over
+		 *            the over
+		 * @param from
+		 *            the from
+		 * @param to
+		 *            the to
+		 * @param cond
+		 *            the cond
+		 * @param name
+		 *            the name
+		 * @return true, if successful
+		 */
+		private void processTimes(final IDescription description, final IExpressionDescription over,
+				final IExpressionDescription from, final IExpressionDescription to, final IExpressionDescription cond,
+				final IExpressionDescription name) {
+			if (over != null) {
+				description.error("'times' and 'over' are not compatible", IGamlIssue.CONFLICTING_FACETS, TIMES, OVER);
+			} else if (cond != null) {
+				description.error("'times' and 'while' are not compatible", IGamlIssue.CONFLICTING_FACETS, TIMES,
+						WHILE);
+			} else if (from != null) {
+				description.error("'times' and 'from' are not compatible", IGamlIssue.CONFLICTING_FACETS, TIMES, FROM);
+			} else if (to != null) {
+				description.error("'times' and 'to' are not compatible", IGamlIssue.CONFLICTING_FACETS, TIMES, TO);
+			}
+			if (name != null) { description.error("No variable should be declared", IGamlIssue.UNUSED, NAME); }
 		}
 
 	}
@@ -308,7 +387,7 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 		@Override
 		protected String serializeFacetValue(final SymbolDescription s, final String key,
 				final boolean includingBuiltIn) {
-			if (key.equals(NAME)) { if (s.hasFacet(TIMES) || s.hasFacet(WHILE)) return null; }
+			if (NAME.equals(key) && (s.hasFacet(TIMES) || s.hasFacet(WHILE))) return null;
 			return super.serializeFacetValue(s, key, includingBuiltIn);
 		}
 
@@ -316,7 +395,7 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 
 	/** The executer. */
 	private final LoopExecuter executer;
-	
+
 	/** The var name. */
 	private final String varName;
 	// private final Object[] result = new Object[1];
@@ -324,7 +403,8 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 	/**
 	 * Instantiates a new loop statement.
 	 *
-	 * @param desc the desc
+	 * @param desc
+	 *            the desc
 	 */
 	public LoopStatement(final IDescription desc) {
 		super(desc);
@@ -347,29 +427,37 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 	public void leaveScope(final IScope scope) {
 		// Should clear any _loop_halted status present
 		// if (varName != null) { scope.removeAllVars(); }
-		scope.popLoop();
+		// scope.popLoop();
 	}
 
 	@Override
 	public Object privateExecuteIn(final IScope scope) throws GamaRuntimeException {
-		return executer.runIn(scope);
+		try {
+			return executer.runIn(scope);
+		} finally {
+			scope.getAndClearBreakStatus();
+		}
 	}
 
 	/**
 	 * Loop body.
 	 *
-	 * @param scope the scope
-	 * @param var the var
-	 * @param result the result
+	 * @param scope
+	 *            the scope
+	 * @param var
+	 *            the var
+	 * @param result
+	 *            the result
 	 * @return true, if successful
 	 */
-	protected boolean loopBody(final IScope scope, final Object var, final Object[] result) {
+	protected FlowStatus loopBody(final IScope scope, final Object var, final Object[] result) {
 		scope.push(this);
 		// We set it explicitely to the newly created scope
 		if (varName != null) { scope.setVarValue(varName, var, true); }
 		result[0] = super.privateExecuteIn(scope);
 		scope.pop(this);
-		return !scope.interrupted();
+		// return !scope.interrupted();
+		return scope.getAndClearContinueStatus();
 	}
 
 	/**
@@ -380,7 +468,8 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 		/**
 		 * Run in.
 		 *
-		 * @param scope the scope
+		 * @param scope
+		 *            the scope
 		 * @return the object
 		 */
 		Object runIn(final IScope scope);
@@ -393,23 +482,24 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 
 		/** The from. */
 		private final IExpression from = getFacet(IKeyword.FROM);
-		
+
 		/** The to. */
 		private final IExpression to = getFacet(IKeyword.TO);
-		
+
 		/** The step. */
 		private final IExpression step = getFacet(IKeyword.STEP);
-		
+
 		/** The constant step. */
 		private Integer constantFrom, constantTo, constantStep;
-		
+
 		/** The step defined. */
 		private final boolean stepDefined;
 
 		/**
 		 * Instantiates a new bounded.
 		 *
-		 * @throws GamaRuntimeException the gama runtime exception
+		 * @throws GamaRuntimeException
+		 *             the gama runtime exception
 		 */
 		Bounded() throws GamaRuntimeException {
 			final IScope scope = null;
@@ -435,16 +525,41 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 			int s = constantStep == null ? Cast.asInt(scope, step.value(scope)) : constantStep;
 			final boolean negative = f - t > 0;
 			// if ( f == t ) { return null; }
+			boolean shouldBreak = false;
 			if (negative) {
 				if (s > 0) {
-					if (!stepDefined) {
-						s = -s;
-					} else
-						return null;
+					if (stepDefined) return null;
+					s = -s;
 				}
-				for (int i = f, n = t - 1; i > n && loopBody(scope, i, result); i += s) {}
+				for (int i = f, n = t - 1; i > n && !shouldBreak; i += s) {
+					FlowStatus status = loopBody(scope, i, result);
+					switch (status) {
+						case CONTINUE:
+							continue;
+						case BREAK:
+						case RETURN:
+						case DIE:
+						case DISPOSE:
+							shouldBreak = true;
+							break;
+						default:
+					}
+				}
 			} else {
-				for (int i = f, n = t + 1; i < n && loopBody(scope, i, result); i += s) {}
+				for (int i = f, n = t + 1; i < n && !shouldBreak; i += s) {
+					FlowStatus status = loopBody(scope, i, result);
+					switch (status) {
+						case CONTINUE:
+							continue;
+						case BREAK:
+						case RETURN:
+						case DIE:
+						case DISPOSE:
+							shouldBreak = true;
+							break;
+						default:
+					}
+				}
 			}
 			return result[0];
 		}
@@ -464,8 +579,26 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 			final Object obj = over.value(scope);
 			final Iterable list_ =
 					!(obj instanceof IContainer) ? Cast.asList(scope, obj) : ((IContainer) obj).iterable(scope);
+			boolean shouldBreak = false;
+
 			for (final Object each : list_) {
-				if (!loopBody(scope, each, result)) { break; }
+
+				switch (loopBody(scope, each, result)) {
+					case CONTINUE:
+						continue;
+					case BREAK:
+					case RETURN:
+					case DIE:
+					case DISPOSE:
+						shouldBreak = true;
+						break;
+					default:
+						;
+				}
+				if (shouldBreak) {
+					break;
+					// if (!loopBody(scope, each, result)) { break; } }
+				}
 			}
 			return result[0];
 		}
@@ -478,14 +611,15 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 
 		/** The times. */
 		private final IExpression times = getFacet(IKeyword.TIMES);
-		
+
 		/** The constant times. */
 		private Integer constantTimes;
 
 		/**
 		 * Instantiates a new times.
 		 *
-		 * @throws GamaRuntimeException the gama runtime exception
+		 * @throws GamaRuntimeException
+		 *             the gama runtime exception
 		 */
 		Times() throws GamaRuntimeException {
 			if (times.isConst()) { constantTimes = Types.INT.cast(null, times.getConstValue(), null, false); }
@@ -495,7 +629,21 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 		public Object runIn(final IScope scope) throws GamaRuntimeException {
 			final Object[] result = new Object[1];
 			final int max = constantTimes == null ? Cast.asInt(scope, times.value(scope)) : constantTimes;
-			for (int i = 0; i < max && loopBody(scope, null, result); i++) {}
+			boolean shouldBreak = false;
+			for (int i = 0; i < max && !shouldBreak; i++) {
+				switch (loopBody(scope, null, result)) {
+					case CONTINUE:
+						continue;
+					case BREAK:
+					case RETURN:
+					case DIE:
+					case DISPOSE:
+						shouldBreak = true;
+						break;
+					default:
+						;
+				}
+			}
 			return result[0];
 		}
 
@@ -512,7 +660,21 @@ public class LoopStatement extends AbstractStatementSequence implements Breakabl
 		@Override
 		public Object runIn(final IScope scope) throws GamaRuntimeException {
 			final Object[] result = new Object[1];
-			while (Cast.asBool(scope, cond.value(scope)) && loopBody(scope, null, result)) {}
+			boolean shouldBreak = false;
+			while (Cast.asBool(scope, cond.value(scope)) && !shouldBreak) {
+				switch (loopBody(scope, null, result)) {
+					case CONTINUE:
+						continue;
+					case BREAK:
+					case RETURN:
+					case DIE:
+					case DISPOSE:
+						shouldBreak = true;
+						break;
+					default:
+						;
+				}
+			}
 			return result[0];
 		}
 	}
