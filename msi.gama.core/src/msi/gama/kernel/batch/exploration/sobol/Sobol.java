@@ -49,7 +49,7 @@ public class Sobol {
 	/** sobol indexes for each variable <br>
 	 * - K1 the output name <br>
 	 * - K2 the variable name <br>
-	 * - V list of first order index, first order confidence, second order index, second order confidence
+	 * - V list of first order index, first order confidence, total order index, total order confidence
 	 */
 	private Map<String, Map<String, List<Double>>> sobol_analysis = new HashMap<>();
 	
@@ -301,22 +301,26 @@ public class Sobol {
 	 */
 	public String buildReportString() {
 		StringBuffer sb = new StringBuffer();
-		sb.append("SOBOL ANALYSIS :\n");
+		sb.append("SOBOL ANALYSIS :").append(Strings.LN);
 		for(String output_name : sobol_analysis.keySet()) {
-			sb.append("##############################\n");
-			sb.append("output variable : " + output_name).append(Strings.LN);
 			sb.append("-------------------").append(Strings.LN);
+			sb.append("outcome of interest : " + output_name).append(Strings.LN);
+			
+			sb.append("first order :").append(Strings.LN);
 			for(String param : sobol_analysis.get(output_name).keySet()) {
-				sb.append(param + " : \n");
-				sb.append("first order : ");
-				sb.append(sobol_analysis.get(output_name).get(param).get(0)).append(Strings.LN);
-				sb.append("first order confidence : ");
-				sb.append(sobol_analysis.get(output_name).get(param).get(1)).append(Strings.LN);
-				sb.append("Total order : ");
-				sb.append(sobol_analysis.get(output_name).get(param).get(2)).append(Strings.LN);
-				sb.append("Total order confidence : ");
-				sb.append(sobol_analysis.get(output_name).get(param).get(3)).append(Strings.LN);
-				sb.append("-------------------").append(Strings.LN);
+				sb.append(Strings.TAB);
+				sb.append("Parameter '" + param + "' : ");
+				sb.append(sobol_analysis.get(output_name).get(param).get(0));
+				sb.append(" (" + sobol_analysis.get(output_name).get(param).get(1) + ")");
+				sb.append(Strings.LN);
+			}
+			sb.append("total order :").append(Strings.LN);
+			for(String param : sobol_analysis.get(output_name).keySet()) {
+				sb.append(Strings.TAB);
+				sb.append("Parameter '" + param + "' : ");
+				sb.append(sobol_analysis.get(output_name).get(param).get(2));
+				sb.append(" (" + sobol_analysis.get(output_name).get(param).get(3) + ")");
+				sb.append(Strings.LN);
 			}
 		}
 		String s = sb.toString();
